@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { db } from './src/server/dbStore.js';
-import { askTournamentCopilot } from './src/server/geminiService.js';
+import { askTournamentCopilot, getMatchPrediction } from './src/server/geminiService.js';
 import { Match, MatchEvent, Team, TicketBooking, VideoHighlight } from './src/types.js';
 import { initialMatches } from './src/server/initialData.js';
 
@@ -420,6 +420,17 @@ async function startServer() {
       res.json({ reply });
     } catch (err) {
       res.status(500).json({ error: 'AI Generation Failed' });
+    }
+  });
+
+  // API 15b: Match Prediction outcome forecast using AI Copilot
+  app.get('/api/matches/:id/prediction', async (req, res) => {
+    const { id } = req.params;
+    try {
+      const forecast = await getMatchPrediction(id);
+      res.json({ forecast });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to generate AI forecast' });
     }
   });
 

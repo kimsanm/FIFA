@@ -3,6 +3,7 @@ import { Calendar, Clock, MapPin, Award, Star, Activity, ArrowRight, TrendingUp,
 import { Match, Team, Player } from '../types.js';
 import VideoHighlights from './VideoHighlights.js';
 import MatchInsights from './MatchInsights.js';
+import MatchPrediction from './MatchPrediction.js';
 import Modal from './Modal.js';
 
 interface MatchesViewProps {
@@ -286,6 +287,11 @@ export default function MatchesView({
                       )}
                     </div>
 
+                  </div>
+
+                  {/* AI Prediction badge & forecast container */}
+                  <div className="px-5 pb-4">
+                    <MatchPrediction matchId={match.id} homeCode={homeCode} awayCode={awayCode} />
                   </div>
 
                   {/* If match is finished, render Match Insights directly within the Match card */}

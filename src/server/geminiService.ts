@@ -142,7 +142,7 @@ Tournament tickets are organized into four intuitive categories to accommodate a
   }
 
   return `### ⚽ Welcome to the 2026 Tournament Intelligence Center!
-
+  
 I am your **AI Tournament Copilot**, fully grounded in our tournament database. You can ask me questions about:
 *   **Tactical Predictions**: "Predict the match between France and Japan"
 *   **Schedules & Standings**: "Who is currently leading Group A?"
@@ -152,3 +152,79 @@ I am your **AI Tournament Copilot**, fully grounded in our tournament database. 
 
 How can I assist your tournament journey today? 🏟️`;
 }
+
+function generateMockPrediction(homeTeam: any, awayTeam: any, homeRating: string, awayRating: string): string {
+  const homeScoreDiff = (homeTeam.points || 0) - (awayTeam.points || 0);
+  const ratingDiff = parseFloat(homeRating) - parseFloat(awayRating);
+  
+  if (homeScoreDiff > 2 || ratingDiff > 1.5) {
+    return `With an impressive squad average rating of ${homeRating} and dominant group stage form, ${homeTeam.name} are heavily favored to control the tempo and secure a vital victory against a resilient ${awayTeam.name} side.`;
+  } else if (homeScoreDiff < -2 || ratingDiff < -1.5) {
+    return `Despite ${homeTeam.name}'s home support, ${awayTeam.name}'s superior clinical depth (squad rating ${awayRating}) is forecasted to break through the defense and secure a hard-fought away win.`;
+  } else {
+    return `A highly compact tactical battle is anticipated between ${homeTeam.name} and ${awayTeam.name}, with both sides matching each other in rating and midfield intensity, likely resulting in a hard-fought draw.`;
+  }
+}
+
+export async function getMatchPrediction(matchId: string): Promise<string> {
+  const client = getAiClient();
+  
+  const match = db.getMatches().find(m => m.id === matchId);
+  if (!match) {
+    return "Match not found.";
+  }
+  
+  const homeTeam = db.getTeams().find(t => t.id === match.homeTeamId);
+  const awayTeam = db.getTeams().find(t => t.id === match.awayTeamId);
+  if (!homeTeam || !awayTeam) {
+    return "Teams not found for prediction context.";
+  }
+  
+  const homePlayers = db.getPlayers().filter(p => p.teamId === match.homeTeamId);
+  const awayPlayers = db.getPlayers().filter(p => p.teamId === match.awayTeamId);
+  
+  const homeAvgRating = homePlayers.length > 0 
+    ? (homePlayers.reduce((sum, p) => sum + p.rating, 0) / homePlayers.length).toFixed(1)
+    : "82.5";
+  const awayAvgRating = awayPlayers.length > 0 
+    ? (awayPlayers.reduce((sum, p) => sum + p.rating, 0) / awayPlayers.length).toFixed(1)
+    : "81.0";
+    
+  const homeTopPlayers = homePlayers.sort((a, b) => b.rating - a.rating).slice(0, 2).map(p => `${p.name} (Rating: ${p.rating})`).join(', ');
+  const awayTopPlayers = awayPlayers.sort((a, b) => b.rating - a.rating).slice(0, 2).map(p => `${p.name} (Rating: ${p.rating})`).join(', ');
+  
+  const homeStandingText = `Group Stage Record - Points: ${homeTeam.points || 0}, Played: ${homeTeam.played || 0}, GD: ${(homeTeam.goalsFor || 0) - (homeTeam.goalsAgainst || 0)}`;
+  const awayStandingText = `Group Stage Record - Points: ${awayTeam.points || 0}, Played: ${awayTeam.played || 0}, GD: ${(awayTeam.goalsFor || 0) - (awayTeam.goalsAgainst || 0)}`;
+  
+  const prompt = `Generate a single-sentence outcome forecast for the match between ${homeTeam.name} (${homeTeam.code}) and ${awayTeam.name} (${awayTeam.code}).
+  
+Context details:
+- ${homeTeam.name}: ${homeStandingText}. Average Player Rating: ${homeAvgRating}. Key Players: ${homeTopPlayers}.
+- ${awayTeam.name}: ${awayStandingText}. Average Player Rating: ${awayAvgRating}. Key Players: ${awayTopPlayers}.
+
+Your response MUST be exactly one sentence. Speak with athletic authority and excitement, referencing the key statistics, standing points, or team ratings provided. Keep it highly objective, premium, and concise. Do not use markdown headers, bold headers, or bullet points.`;
+
+  if (!client) {
+    return generateMockPrediction(homeTeam, awayTeam, homeAvgRating, awayAvgRating);
+  }
+  
+  try {
+    const response = await client.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: prompt,
+      config: {
+        temperature: 0.7,
+      }
+    });
+    const predictionText = response.text?.trim();
+    if (predictionText) {
+      // Clean up any double quotes or backticks that the model might wrap it in
+      return predictionText.replace(/^["'`]|["'`]$/g, '').trim();
+    }
+    return generateMockPrediction(homeTeam, awayTeam, homeAvgRating, awayAvgRating);
+  } catch (err) {
+    console.error('[AI] Prediction generation error:', err);
+    return generateMockPrediction(homeTeam, awayTeam, homeAvgRating, awayAvgRating);
+  }
+}
+
