@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Calendar, Clock, MapPin, Award, Star, Activity, ArrowRight, TrendingUp, Sparkles, Share2, Copy, Check } from 'lucide-react';
 import { Match, Team, Player } from '../types.js';
 import VideoHighlights from './VideoHighlights.js';
+import MatchInsights from './MatchInsights.js';
 import Modal from './Modal.js';
 
 interface MatchesViewProps {
@@ -286,6 +287,17 @@ export default function MatchesView({
                     </div>
 
                   </div>
+
+                  {/* If match is finished, render Match Insights directly within the Match card */}
+                  {match.status === 'finished' && (
+                    <div 
+                      onClick={(e) => e.stopPropagation()} 
+                      className="px-5 pb-5 pt-1 border-t border-slate-800/40 cursor-default"
+                    >
+                      <MatchInsights match={match} teams={teams} />
+                    </div>
+                  )}
+
                 </div>
               );
             })

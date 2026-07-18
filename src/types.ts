@@ -68,6 +68,7 @@ export interface MatchStats {
   corners: { home: number; away: number };
   offsides: { home: number; away: number };
   fouls: { home: number; away: number };
+  passCompletion?: { home: number; away: number };
 }
 
 export interface Match {

@@ -84,7 +84,8 @@ export const initialMatches: Match[] = [
       shotsOnTarget: { home: 6, away: 5 },
       corners: { home: 4, away: 8 },
       offsides: { home: 2, away: 1 },
-      fouls: { home: 11, away: 10 }
+      fouls: { home: 11, away: 10 },
+      passCompletion: { home: 83, away: 85 }
     }
   },
   {
@@ -113,7 +114,8 @@ export const initialMatches: Match[] = [
       shotsOnTarget: { home: 11, away: 4 },
       corners: { home: 9, away: 2 },
       offsides: { home: 4, away: 3 },
-      fouls: { home: 6, away: 12 }
+      fouls: { home: 6, away: 12 },
+      passCompletion: { home: 90, away: 68 }
     }
   },
   // Live Matches (Active right now!)
@@ -140,7 +142,8 @@ export const initialMatches: Match[] = [
       shotsOnTarget: { home: 4, away: 3 },
       corners: { home: 5, away: 4 },
       offsides: { home: 3, away: 1 },
-      fouls: { home: 8, away: 9 }
+      fouls: { home: 8, away: 9 },
+      passCompletion: { home: 87, away: 81 }
     }
   },
   // Scheduled Matches
