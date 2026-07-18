@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, MessageSquare, ArrowDown, ShieldCheck, Activity } from 'lucide-react';
+import { Send, Sparkles, MessageSquare, ArrowDown, ShieldCheck, Activity, Mic, MicOff } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'model';
@@ -18,9 +18,69 @@ export default function CopilotView({ onSendMessage }: CopilotViewProps) {
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      setSpeechSupported(true);
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = 'en-US';
+
+      rec.onstart = () => {
+        setIsListening(true);
+        setSpeechError(null);
+      };
+
+      rec.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0])
+          .map((result: any) => result.transcript)
+          .join('');
+        setInputValue(transcript);
+      };
+
+      rec.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          setSpeechError('Microphone permission denied. Please allow mic access in your browser.');
+        } else {
+          setSpeechError(`Speech error: ${event.error}`);
+        }
+        setIsListening(false);
+      };
+
+      rec.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = rec;
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (!speechSupported || !recognitionRef.current) return;
+
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      setSpeechError(null);
+      try {
+        recognitionRef.current.start();
+      } catch (err) {
+        console.error('Failed to start speech recognition:', err);
+      }
+    }
+  };
 
   const handleSend = async (textToSend?: string) => {
     const text = (textToSend || inputValue).trim();
@@ -172,6 +232,39 @@ export default function CopilotView({ onSendMessage }: CopilotViewProps) {
             <div ref={scrollRef} />
           </div>
 
+          {/* Voice Command feedback status */}
+          {(isListening || speechError) && (
+            <div className="px-4 py-2 text-xs flex items-center justify-between animate-fade-in bg-slate-900/60 rounded-xl border border-slate-850/60 mb-2">
+              {isListening ? (
+                <div className="flex items-center space-x-2 text-lime-400 font-semibold font-mono animate-pulse">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lime-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-lime-500"></span>
+                  </span>
+                  <span>Voice Active: Speak your question now...</span>
+                </div>
+              ) : (
+                <div className="text-red-400 font-medium font-sans flex items-center space-x-2">
+                  <span>⚠️</span>
+                  <span>{speechError}</span>
+                </div>
+              )}
+              {isListening && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (recognitionRef.current) {
+                      recognitionRef.current.stop();
+                    }
+                  }}
+                  className="text-[10px] text-slate-400 hover:text-white uppercase font-bold tracking-wider"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Interactive Chat Input form */}
           <form
             onSubmit={(e) => {
@@ -184,9 +277,39 @@ export default function CopilotView({ onSendMessage }: CopilotViewProps) {
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Ask Copilot about championship matches, hotel lodges, Cambodia profiles..."
+              placeholder={isListening ? "Listening... Speak clearly" : "Ask Copilot about championship matches, hotel lodges, Cambodia profiles..."}
               className="flex-1 rounded-xl border border-slate-850 bg-slate-900 px-4 py-3.5 text-xs font-semibold text-slate-200 focus:border-lime-400 focus:bg-slate-900/80 focus:outline-none transition-all placeholder:text-slate-550"
             />
+            
+            {speechSupported ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  toggleListening();
+                }}
+                className={`rounded-xl p-3.5 transition-all active:scale-95 border ${
+                  isListening
+                    ? 'bg-red-500 border-red-500 text-white animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.4)]'
+                    : 'bg-slate-900 border-slate-850 text-slate-400 hover:border-lime-400 hover:text-lime-400 hover:bg-slate-900/80'
+                }`}
+                title={isListening ? 'Stop voice recognition' : 'Ask via Voice Command'}
+                id="voice-command-mic-btn"
+              >
+                <Mic className="h-4 w-4 stroke-[2.5]" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="rounded-xl bg-slate-950 border border-slate-900 p-3.5 text-slate-600 cursor-not-allowed"
+                title="Web Speech API not supported in this browser"
+                id="voice-command-disabled"
+              >
+                <MicOff className="h-4 w-4" />
+              </button>
+            )}
+
             <button
               type="submit"
               disabled={!inputValue.trim() || loading}

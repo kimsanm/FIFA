@@ -1,6 +1,6 @@
 {
   "name": "World Football Championship 2026",
   "description": "Enterprise-grade digital hub for the 2026 World Football Championship, featuring live matches, statistics, standings, AI tournament guide, stadiums and host cities directories, and interactive booking simulations.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
