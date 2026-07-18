@@ -10,7 +10,7 @@ import NewsView from './components/NewsView.js';
 import ProfileView from './components/ProfileView.js';
 import AdminView from './components/AdminView.js';
 
-import { Team, Player, Match, Stadium, NewsArticle, User, TicketBooking, AnalyticsSummary, TournamentConfig } from './types.js';
+import { Team, Player, Match, Stadium, NewsArticle, User, TicketBooking, AnalyticsSummary, TournamentConfig, VideoHighlight } from './types.js';
 import { Calendar, Users, Trophy, ChevronRight, Activity, BellRing, Ticket, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -19,6 +19,7 @@ export default function App() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [stadiums, setStadiums] = useState<Stadium[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [highlights, setHighlights] = useState<VideoHighlight[]>([]);
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [bookings, setBookings] = useState<TicketBooking[]>([]);
@@ -30,11 +31,12 @@ export default function App() {
   // Sync state with the backend on component mount
   const syncState = async () => {
     try {
-      const [teamsRes, playersRes, stadiumsRes, matchesRes, newsRes, userRes, bookingsRes, analyticsRes, configRes] = await Promise.all([
+      const [teamsRes, playersRes, stadiumsRes, matchesRes, highlightsRes, newsRes, userRes, bookingsRes, analyticsRes, configRes] = await Promise.all([
         fetch('/api/teams').then(r => r.json()),
         fetch('/api/players').then(r => r.json()),
         fetch('/api/stadiums').then(r => r.json()),
         fetch('/api/matches').then(r => r.json()),
+        fetch('/api/highlights').then(r => r.json()),
         fetch('/api/news').then(r => r.json()),
         fetch('/api/users/me').then(r => r.json()),
         fetch('/api/tickets/my-bookings').then(r => r.json()),
@@ -46,6 +48,7 @@ export default function App() {
       setPlayers(playersRes);
       setStadiums(stadiumsRes);
       setMatches(matchesRes);
+      setHighlights(highlightsRes);
       setNews(newsRes);
       setCurrentUser(userRes);
       setBookings(bookingsRes);

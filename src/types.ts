@@ -84,6 +84,7 @@ export interface Match {
   stadiumId: string;
   events: MatchEvent[];
   stats: MatchStats;
+  highlightVideo?: VideoHighlight;
 }
 
 export interface VideoHighlightEvent {

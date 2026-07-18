@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, MapPin, Award, Star, Activity, ArrowRight, TrendingUp, Sparkles } from 'lucide-react';
+import { Calendar, Clock, MapPin, Award, Star, Activity, ArrowRight, TrendingUp, Sparkles, Share2, Copy, Check } from 'lucide-react';
 import { Match, Team, Player } from '../types.js';
 import VideoHighlights from './VideoHighlights.js';
+import Modal from './Modal.js';
 
 interface MatchesViewProps {
   matches: Match[];
@@ -22,10 +23,70 @@ export default function MatchesView({
 }: MatchesViewProps) {
   const [filter, setFilter] = useState<'all' | 'live' | 'upcoming' | 'finished'>('all');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [sharingMatch, setSharingMatch] = useState<Match | null>(null);
+  const [shareText, setShareText] = useState<string>('');
+  const [copied, setCopied] = useState<boolean>(false);
 
   const getTeamName = (id: string) => teams.find(t => t.id === id)?.name || 'Unknown';
   const getTeamCode = (id: string) => teams.find(t => t.id === id)?.code || 'UNK';
   const getTeamFlag = (id: string) => teams.find(t => t.id === id)?.flag || '🏳️';
+
+  const generateShareText = (match: Match) => {
+    const homeFlag = getTeamFlag(match.homeTeamId);
+    const awayFlag = getTeamFlag(match.awayTeamId);
+    const homeName = getTeamName(match.homeTeamId);
+    const awayName = getTeamName(match.awayTeamId);
+    const homeCode = getTeamCode(match.homeTeamId);
+    const awayCode = getTeamCode(match.awayTeamId);
+
+    let text = '';
+    if (match.status === 'finished') {
+      text += `🏆 WFC 2026 Match Results 🏆\n\n`;
+      text += `${homeFlag} ${homeName} ${match.homeScore} - ${match.awayScore} ${awayName} ${awayFlag} (FT)\n`;
+      text += `📅 Date: ${match.date} | ${match.round}\n\n`;
+      if (match.highlightVideo) {
+        text += `🎥 Watch the Official Highlights & Replay:\n`;
+        text += `👉 ${window.location.origin}/highlights?id=${match.id}\n\n`;
+      }
+      const goals = match.events.filter(e => e.type === 'goal');
+      if (goals.length > 0) {
+        text += `⚽ Key Goals:\n`;
+        goals.forEach(g => {
+          const teamCode = getTeamCode(g.teamId);
+          text += `- ${g.minute}' ${g.playerName} (${teamCode})\n`;
+        });
+        text += `\n`;
+      }
+      text += `#WFC2026 #Soccer #MatchHighlights #${homeCode}vs${awayCode}`;
+    } else if (match.status === 'live') {
+      text += `🔴 LIVE NOW: WFC 2026 🔴\n\n`;
+      text += `${homeFlag} ${homeName} ${match.homeScore} - ${match.awayScore} ${awayName} ${awayFlag}\n`;
+      text += `⏱️ Time: ${match.events[match.events.length - 1]?.minute || 'Live'}' minutes played\n\n`;
+      text += `Follow live updates on the Official WFC Hub!\n`;
+      text += `#WFC2026 #LiveMatch #${homeCode}vs${awayCode}`;
+    } else {
+      text += `📅 UPCOMING FIXTURE: WFC 2026 📅\n\n`;
+      text += `${homeFlag} ${homeName} vs ${awayName} ${awayFlag}\n`;
+      text += `⏰ ${match.date} at ${match.time} UTC\n`;
+      text += `🏟️ Venue: MetLife Stadium\n\n`;
+      text += `Tickets are selling out fast! Secure yours now on the official ticketing portal!\n`;
+      text += `#WFC2026 #Fixture #${homeCode}vs${awayCode}`;
+    }
+    return text;
+  };
+
+  const handleShareClick = (match: Match) => {
+    const text = generateShareText(match);
+    setShareText(text);
+    setSharingMatch(match);
+    setCopied(false);
+  };
+
+  const handleCopyShareText = () => {
+    navigator.clipboard.writeText(shareText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const filteredMatches = matches.filter(m => {
     if (filter === 'live') return m.status === 'live';
@@ -197,6 +258,18 @@ export default function MatchesView({
                         title="Favorite Match"
                       >
                         <Star className={`h-4 w-4 ${isFav ? 'fill-yellow-400' : ''}`} />
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleShareClick(match);
+                        }}
+                        className="rounded-xl border border-slate-800 bg-slate-950 text-slate-500 hover:text-white hover:bg-slate-800 p-2.5 transition-all"
+                        title="Share Match Social Summary"
+                        id={`share-btn-${match.id}`}
+                      >
+                        <Share2 className="h-4 w-4" />
                       </button>
 
                       {match.status === 'scheduled' && (
@@ -403,6 +476,75 @@ export default function MatchesView({
         </div>
 
       </div>
+
+      {/* Share Modal Dialog */}
+      {sharingMatch && (
+        <Modal
+          isOpen={sharingMatch !== null}
+          onClose={() => setSharingMatch(null)}
+          size="lg"
+          title={
+            <div className="flex items-center space-x-2">
+              <Share2 className="h-4 w-4 text-lime-400" />
+              <span>Share Match Summary</span>
+            </div>
+          }
+        >
+          <div className="p-6 space-y-5">
+            <p className="text-xs text-slate-400 font-sans">
+              Here is your pre-formatted social media summary. Copy the text or share it with other fans!
+            </p>
+
+            <div className="relative">
+              <textarea
+                readOnly
+                value={shareText}
+                className="w-full h-48 p-4 rounded-xl border border-slate-800 bg-slate-950 text-slate-300 font-sans text-xs focus:outline-none focus:ring-1 focus:ring-lime-400 leading-relaxed resize-none"
+              />
+              <button
+                onClick={handleCopyShareText}
+                className="absolute bottom-4 right-4 flex items-center space-x-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-850 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-lime-400 transition-all cursor-pointer"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-lime-400" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5 text-lime-400" />
+                    <span>Copy Text</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Quick action buttons for external sites */}
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`}
+                target="_blank"
+                referrerPolicy="no-referrer"
+                className="flex items-center justify-center space-x-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 hover:bg-slate-900/60 p-3 text-xs font-bold text-white transition-all text-center"
+              >
+                <span>🐦 Share on X (Twitter)</span>
+              </a>
+              <a
+                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.origin)}&quote=${encodeURIComponent(shareText)}`}
+                target="_blank"
+                referrerPolicy="no-referrer"
+                className="flex items-center justify-center space-x-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 hover:bg-slate-900/60 p-3 text-xs font-bold text-white transition-all text-center"
+              >
+                <span>👥 Share on Facebook</span>
+              </a>
+            </div>
+
+            <div className="text-[10px] text-slate-500 font-mono text-center pt-2 border-t border-slate-850">
+              WFC 2026 SOCIAL INTEGRATION PORTAL
+            </div>
+          </div>
+        </Modal>
+      )}
 
     </div>
   );

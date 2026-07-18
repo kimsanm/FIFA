@@ -65,6 +65,91 @@ async function startServer() {
     db.setTeams(Object.values(teamMap));
   };
 
+  // Helper: Get Match Highlight Video
+  const getHighlightForMatch = (match: Match): VideoHighlight => {
+    const homeTeam = db.getTeams().find(t => t.id === match.homeTeamId);
+    const awayTeam = db.getTeams().find(t => t.id === match.awayTeamId);
+    const homeName = homeTeam?.name || 'Home Team';
+    const awayName = awayTeam?.name || 'Away Team';
+
+    if (match.id === 'm1') {
+      return {
+        id: 'hl_m1',
+        matchId: 'm1',
+        title: `${homeName} 2 - 1 ${awayName} | Official Match Highlights`,
+        duration: '02:00',
+        thumbnailUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800&auto=format&fit=crop',
+        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        keyEvents: [
+          { minute: 14, title: '⚽ Goal! USA 1 - 0 GER', description: 'Christian Pulisic scores an absolute screamer from 25 yards!', timestamp: 15 },
+          { minute: 42, title: '⚽ Goal! USA 1 - 1 GER', description: 'Florian Wirtz taps in after a quick rebound off the keeper.', timestamp: 48 },
+          { minute: 78, title: '⚽ Goal! USA 2 - 1 GER', description: 'Folarin Balogun slots it home from a clever McKennie pass!', timestamp: 82 },
+          { minute: 82, title: '🟨 Yellow Card', description: 'Jamal Musiala receives a card for a tactical foul on the counter.', timestamp: 105 }
+        ]
+      };
+    } else if (match.id === 'm2') {
+      return {
+        id: 'hl_m2',
+        matchId: 'm2',
+        title: `${homeName} 4 - 2 ${awayName} | Six-Goal Thriller Recap`,
+        duration: '02:40',
+        thumbnailUrl: 'https://images.unsplash.com/photo-1540747737956-37872404a82f?q=80&w=800&auto=format&fit=crop',
+        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+        keyEvents: [
+          { minute: 9, title: '⚽ Goal! ARG 1 - 0 KHM', description: 'Lionel Messi curls an exquisite direct free-kick into the top corner.', timestamp: 12 },
+          { minute: 22, title: '⚽ Goal! ARG 1 - 1 KHM', description: 'Chan Vathanaka finishes a sensational solo counter-attack goal!', timestamp: 44 },
+          { minute: 34, title: '⚽ Goal! ARG 2 - 1 KHM', description: 'Lautaro Martínez heads it past the keeper from a pinpoint corner.', timestamp: 72 },
+          { minute: 58, title: '⚽ Goal! ARG 3 - 1 KHM', description: 'Lionel Messi converts a penalty with clinical precision.', timestamp: 102 },
+          { minute: 71, title: '⚽ Goal! ARG 3 - 2 KHM', description: 'Lim Pisoth curls a gorgeous shot into the far post.', timestamp: 128 },
+          { minute: 88, title: '⚽ Goal! ARG 4 - 2 KHM', description: 'Lautaro Martínez completes his brace, assisted beautifully by Messi.', timestamp: 146 }
+        ]
+      };
+    } else {
+      const events = [...match.events].sort((a, b) => a.minute - b.minute);
+      const keyEvents = events.map((evt, idx) => {
+        let typeStr = '📢 Play';
+        if (evt.type === 'goal') typeStr = '⚽ Goal!';
+        else if (evt.type === 'card_yellow') typeStr = '🟨 Yellow Card';
+        else if (evt.type === 'card_red') typeStr = '🟥 Red Card';
+        else if (evt.type === 'substitute') typeStr = '🔄 Sub';
+        else if (evt.type === 'var') typeStr = '🖥️ VAR';
+
+        const teamCode = evt.teamId === match.homeTeamId ? (homeTeam?.code || 'HOME') : (awayTeam?.code || 'AWAY');
+        return {
+          minute: evt.minute,
+          title: `${typeStr} - ${evt.playerName} (${teamCode})`,
+          description: evt.detail || `Action event at minute ${evt.minute}`,
+          timestamp: Math.min(25 + idx * 30, 110)
+        };
+      });
+
+      if (keyEvents.length === 0) {
+        keyEvents.push({
+          minute: 45,
+          title: '⚽ Mid-match summary',
+          description: 'Tactical summary of the first-half actions.',
+          timestamp: 30
+        });
+        keyEvents.push({
+          minute: 90,
+          title: '🏁 Full-Time whistle',
+          description: 'The final whistle blows!',
+          timestamp: 95
+        });
+      }
+
+      return {
+        id: `hl_${match.id}`,
+        matchId: match.id,
+        title: `${homeName} vs ${awayName} | Match Highlights`,
+        duration: '02:00',
+        thumbnailUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800&auto=format&fit=crop',
+        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+        keyEvents
+      };
+    }
+  };
+
   // API 1: Teams
   app.get('/api/teams', (req, res) => {
     res.json(db.getTeams());
@@ -82,7 +167,11 @@ async function startServer() {
 
   // API 4: Matches
   app.get('/api/matches', (req, res) => {
-    res.json(db.getMatches());
+    const populated = db.getMatches().map(m => ({
+      ...m,
+      highlightVideo: m.status === 'finished' ? getHighlightForMatch(m) : undefined
+    }));
+    res.json(populated);
   });
 
   // API 5: Update Match Score (Admin Control)
@@ -145,7 +234,11 @@ async function startServer() {
       db.setUsers(users);
     }
 
-    res.json(match);
+    const populatedMatch = {
+      ...match,
+      highlightVideo: match.status === 'finished' ? getHighlightForMatch(match) : undefined
+    };
+    res.json(populatedMatch);
   });
 
   // API 6: Add Match Event
@@ -366,91 +459,15 @@ async function startServer() {
       return res.status(400).json({ error: 'Highlights are only available for finished matches' });
     }
 
-    const homeTeam = db.getTeams().find(t => t.id === match.homeTeamId);
-    const awayTeam = db.getTeams().find(t => t.id === match.awayTeamId);
-    const homeName = homeTeam?.name || 'Home Team';
-    const awayName = awayTeam?.name || 'Away Team';
-
-    let highlight: VideoHighlight | null = null;
-
-    if (id === 'm1') {
-      highlight = {
-        id: 'hl_m1',
-        matchId: 'm1',
-        title: `${homeName} 2 - 1 ${awayName} | Official Match Highlights`,
-        duration: '02:00',
-        thumbnailUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800&auto=format&fit=crop',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-        keyEvents: [
-          { minute: 14, title: '⚽ Goal! USA 1 - 0 GER', description: 'Christian Pulisic scores an absolute screamer from 25 yards!', timestamp: 15 },
-          { minute: 42, title: '⚽ Goal! USA 1 - 1 GER', description: 'Florian Wirtz taps in after a quick rebound off the keeper.', timestamp: 48 },
-          { minute: 78, title: '⚽ Goal! USA 2 - 1 GER', description: 'Folarin Balogun slots it home from a clever McKennie pass!', timestamp: 82 },
-          { minute: 82, title: '🟨 Yellow Card', description: 'Jamal Musiala receives a card for a tactical foul on the counter.', timestamp: 105 }
-        ]
-      };
-    } else if (id === 'm2') {
-      highlight = {
-        id: 'hl_m2',
-        matchId: 'm2',
-        title: `${homeName} 4 - 2 ${awayName} | Six-Goal Thriller Recap`,
-        duration: '02:40',
-        thumbnailUrl: 'https://images.unsplash.com/photo-1540747737956-37872404a82f?q=80&w=800&auto=format&fit=crop',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-        keyEvents: [
-          { minute: 9, title: '⚽ Goal! ARG 1 - 0 KHM', description: 'Lionel Messi curls an exquisite direct free-kick into the top corner.', timestamp: 12 },
-          { minute: 22, title: '⚽ Goal! ARG 1 - 1 KHM', description: 'Chan Vathanaka finishes a sensational solo counter-attack goal!', timestamp: 44 },
-          { minute: 34, title: '⚽ Goal! ARG 2 - 1 KHM', description: 'Lautaro Martínez heads it past the keeper from a pinpoint corner.', timestamp: 72 },
-          { minute: 58, title: '⚽ Goal! ARG 3 - 1 KHM', description: 'Lionel Messi converts a penalty with clinical precision.', timestamp: 102 },
-          { minute: 71, title: '⚽ Goal! ARG 3 - 2 KHM', description: 'Lim Pisoth curls a gorgeous shot into the far post.', timestamp: 128 },
-          { minute: 88, title: '⚽ Goal! ARG 4 - 2 KHM', description: 'Lautaro Martínez completes his brace, assisted beautifully by Messi.', timestamp: 146 }
-        ]
-      };
-    } else {
-      const events = [...match.events].sort((a, b) => a.minute - b.minute);
-      const keyEvents = events.map((evt, idx) => {
-        let typeStr = '📢 Play';
-        if (evt.type === 'goal') typeStr = '⚽ Goal!';
-        else if (evt.type === 'card_yellow') typeStr = '🟨 Yellow Card';
-        else if (evt.type === 'card_red') typeStr = '🟥 Red Card';
-        else if (evt.type === 'substitute') typeStr = '🔄 Sub';
-        else if (evt.type === 'var') typeStr = '🖥️ VAR';
-
-        const teamCode = evt.teamId === match.homeTeamId ? (homeTeam?.code || 'HOME') : (awayTeam?.code || 'AWAY');
-        return {
-          minute: evt.minute,
-          title: `${typeStr} - ${evt.playerName} (${teamCode})`,
-          description: evt.detail || `Action event at minute ${evt.minute}`,
-          timestamp: Math.min(25 + idx * 30, 110)
-        };
-      });
-
-      if (keyEvents.length === 0) {
-        keyEvents.push({
-          minute: 45,
-          title: '⚽ Mid-match summary',
-          description: 'Tactical summary of the first-half actions.',
-          timestamp: 30
-        });
-        keyEvents.push({
-          minute: 90,
-          title: '🏁 Full-Time whistle',
-          description: 'The final whistle blows!',
-          timestamp: 95
-        });
-      }
-
-      highlight = {
-        id: `hl_${id}`,
-        matchId: id,
-        title: `${homeName} vs ${awayName} | Match Highlights`,
-        duration: '02:00',
-        thumbnailUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800&auto=format&fit=crop',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-        keyEvents
-      };
-    }
-
+    const highlight = getHighlightForMatch(match);
     res.json(highlight);
+  });
+
+  // API 19: Get All Match Highlights
+  app.get('/api/highlights', (req, res) => {
+    const finishedMatches = db.getMatches().filter(m => m.status === 'finished');
+    const highlights = finishedMatches.map(m => getHighlightForMatch(m));
+    res.json(highlights);
   });
 
   // Vite Integration for Client SPA or Built Assets in Production
